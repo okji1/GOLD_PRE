@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>금 프리미엄 계산기</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            container-type: inline-size;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box; /* A must-have for padding */
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .result p {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        .result .premium {
+            font-weight: bold;
+        }
+        .result .premium.plus {
+            color: #d9534f;
+        }
+        .result .premium.minus {
+            color: #5cb85c;
+        }
+        .loading {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>금 프리미엄 계산기</h1>
+        
+        <div class="loading" id="loading">데이터를 불러오는 중...</div>
+
+        <div class="result" id="result" style="display:none;">
+            <p><strong>해외 금 시세 (USD/oz):</strong> <span id="internationalPriceDisplay"></span> USD/oz</p>
+            <p><strong>한국 금 시세 (원/g):</strong> <span id="koreanPriceDisplay"></span> 원/g</p>
+            <p><strong>현재 환율 (원/USD):</strong> <span id="exchangeRateDisplay"></span> 원/USD</p>
+            <hr>
+            <p><strong>해외 금 시세 (환산):</strong> <span id="convertedPrice"></span> 원/g</p>
+            <p class="premium"><span id="premiumRate"></span> <span id="premiumText"></span></p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchGoldPremium();
+        });
+
+        async function fetchGoldPremium() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/gold_premium');
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('데이터를 불러오는 데 실패했습니다: ' + data.error);
+                    document.getElementById('loading').innerText = '데이터 로드 실패: ' + data.error;
+                    return;
+                }
+
+                // Display raw data
+                document.getElementById('internationalPriceDisplay').innerText = data.international_price_oz.toFixed(2);
+                document.getElementById('koreanPriceDisplay').innerText = data.korean_price_gram.toFixed(2);
+                document.getElementById('exchangeRateDisplay').innerText = data.exchange_rate.toFixed(2);
+
+                // Display calculated data
+                document.getElementById('convertedPrice').innerText = data.converted_price_krw_per_gram.toFixed(2);
+                
+                const premiumRateEl = document.getElementById('premiumRate');
+                const premiumTextEl = document.getElementById('premiumText');
+
+                premiumRateEl.innerText = `${data.premium_percentage > 0 ? '+' : ''}${data.premium_percentage.toFixed(2)}%`;
+
+                if (data.premium_percentage > 0) {
+                    premiumRateEl.className = 'premium plus';
+                    premiumTextEl.innerText = '김치 프리미엄 (한국 금이 더 비쌉니다)';
+                } else {
+                    premiumRateEl.className = 'premium minus';
+                    premiumTextEl.innerText = '역프리미엄 (해외 금이 더 비쌉니다)';
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('result').style.display = 'block';
+
+            } catch (error) {
+                alert('서버와 통신 중 오류가 발생했습니다. Flask 서버가 실행 중인지 확인해주세요: ' + error);
+                document.getElementById('loading').innerText = '오류 발생: ' + error;
+            }
+        }
+    </script>
+
+</body>
+</html>
