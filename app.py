@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
 import json
+import re
 from datetime import datetime, timedelta
 
 from bs4 import BeautifulSoup
@@ -141,33 +142,32 @@ def get_put_call_ratio():
     try:
         url = "https://www.barchart.com/stocks/quotes/GLD/options"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'lxml')
-        
-        data_rows = soup.select('div.bc-quote-row')
-        
-        ratio_data = {}
-        
-        for row in data_rows:
-            label_div = row.find('div', class_='column-1')
-            value_div = row.find('div', class_='column-2')
-            if label_div and value_div:
-                label = label_div.get_text(strip=True)
-                value = value_div.get_text(strip=True)
-                
-                if "Put/Call Vol Ratio" in label:
-                    ratio_data['volume_ratio'] = value
-                elif "Put/Call Open Int Ratio" in label:
-                    ratio_data['open_interest_ratio'] = value
-                elif "Put Volume" in label:
-                    ratio_data['put_volume'] = value
-                elif "Call Volume" in label:
-                    ratio_data['call_volume'] = value
+        page_text = soup.get_text(separator=' ')
 
-        if not ratio_data:
-            return jsonify({"error": "Data parsing failed.", "details": "Could not find put/call ratio data on the page. The website structure may have changed."}), 500
+        ratio_data = {}
+
+        # Use regular expressions to find data next to labels
+        vol_ratio_match = re.search(r"Put/Call Vol Ratio\s+([\d.]+)", page_text)
+        oi_ratio_match = re.search(r"Put/Call Open Int Ratio\s+([\d.]+)", page_text)
+        put_vol_match = re.search(r"Put Volume\s+([\d,]+)", page_text)
+        call_vol_match = re.search(r"Call Volume\s+([\d,]+)", page_text)
+
+        if vol_ratio_match:
+            ratio_data['volume_ratio'] = vol_ratio_match.group(1)
+        if oi_ratio_match:
+            ratio_data['open_interest_ratio'] = oi_ratio_match.group(1)
+        if put_vol_match:
+            ratio_data['put_volume'] = put_vol_match.group(1)
+        if call_vol_match:
+            ratio_data['call_volume'] = call_vol_match.group(1)
+
+        # Check if all necessary data was found
+        if len(ratio_data) < 4:
+            return jsonify({"error": "Data parsing failed.", "details": f"Could not find all required data points. Found: {list(ratio_data.keys())}"}), 500
 
         return jsonify(ratio_data)
 
