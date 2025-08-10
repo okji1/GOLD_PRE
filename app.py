@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes
+CORS(app, resources={r'/api/*': {'origins': 'https://gold-pre.vercel.app'}})
 
 # Replace with your actual API key for the exchange rate API
 EXCHANGE_RATE_API_KEY = "LEp52OgdDZzH35k7eyu8cHvXWWbmGJeC" 
