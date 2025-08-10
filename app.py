@@ -2,7 +2,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
 import json
-import re
 from datetime import datetime, timedelta
 
 from bs4 import BeautifulSoup
@@ -136,45 +135,3 @@ def get_gold_premium():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
-@app.route('/api/put_call_ratio', methods=['GET'])
-def get_put_call_ratio():
-    try:
-        url = "https://www.barchart.com/stocks/quotes/GLD/options"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'lxml')
-        page_text = soup.get_text(separator=' ')
-
-        ratio_data = {}
-
-        # Use regular expressions to find data next to labels
-        vol_ratio_match = re.search(r"Put/Call Vol Ratio\s+([\d.]+)", page_text)
-        oi_ratio_match = re.search(r"Put/Call Open Int Ratio\s+([\d.]+)", page_text)
-        put_vol_match = re.search(r"Put Volume\s+([\d,]+)", page_text)
-        call_vol_match = re.search(r"Call Volume\s+([\d,]+)", page_text)
-
-        if vol_ratio_match:
-            ratio_data['volume_ratio'] = vol_ratio_match.group(1)
-        if oi_ratio_match:
-            ratio_data['open_interest_ratio'] = oi_ratio_match.group(1)
-        if put_vol_match:
-            ratio_data['put_volume'] = put_vol_match.group(1)
-        if call_vol_match:
-            ratio_data['call_volume'] = call_vol_match.group(1)
-
-        # Check if all necessary data was found
-        if len(ratio_data) < 4:
-            # Return the page text for debugging
-            return jsonify({"error": "Data parsing failed.", "details": "Could not find all required data points.", "raw_html_sample": response.text[:1000]}), 500
-
-        return jsonify(ratio_data)
-
-    except requests.exceptions.Timeout:
-        return jsonify({"error": "Request Timed Out", "details": "The request to barchart.com took too long to respond."}), 500
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": "Request Failed", "details": f"Failed to fetch data from barchart.com: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"error": "An Unexpected Server Error Occurred", "details": str(e)}), 500
