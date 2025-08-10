@@ -167,7 +167,8 @@ def get_put_call_ratio():
 
         # Check if all necessary data was found
         if len(ratio_data) < 4:
-            return jsonify({"error": "Data parsing failed.", "details": f"Could not find all required data points. Found: {list(ratio_data.keys())}"}), 500
+            # Return the page text for debugging
+            return jsonify({"error": "Data parsing failed.", "details": "Could not find all required data points.", "page_content_sample": page_text[:1000]}), 500
 
         return jsonify(ratio_data)
 
