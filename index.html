@@ -173,9 +173,12 @@
                 const data = await response.json();
 
                 if (data.error) {
-                    let error_details = data.details || data.error;
-                    alert('풋/콜 데이터 로드 실패: ' + error_details);
-                    document.getElementById('ratio-loading').innerText = '풋/콜 데이터 로드 실패: ' + error_details;
+                    let errorMessage = '풋/콜 데이터 로드 실패: ' + (data.details || data.error);
+                    if (data.raw_html_sample) {
+                        errorMessage += '\n\n원본 HTML 샘플:\n' + data.raw_html_sample.substring(0, 500) + '...'; // Truncate for alert
+                    }
+                    alert(errorMessage);
+                    document.getElementById('ratio-loading').innerText = errorMessage;
                     return;
                 }
 
