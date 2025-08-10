@@ -2,3 +2,5 @@ Flask
 Flask-Cors
 requests
 gunicorn
+beautifulsoup4
+lxml

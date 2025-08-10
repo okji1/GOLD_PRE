@@ -82,6 +82,48 @@
             font-size: 18px;
             color: #007bff;
         }
+        .ratio-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .ratio-container h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #333;
+        }
+        .bar-chart {
+            display: flex;
+            height: 30px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .bar-call {
+            background-color: #28a745; /* Green for Call */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: width 0.5s ease-in-out;
+        }
+        .bar-put {
+            background-color: #dc3545; /* Red for Put */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: width 0.5s ease-in-out;
+        }
+        .ratio-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -99,12 +141,67 @@
             <p><strong>해외 금 시세 (환산):</strong> <span id="convertedPrice"></span> 원/g</p>
             <p class="premium"><span id="premiumRate"></span> <span id="premiumText"></span></p>
         </div>
+
+        <div class="loading" id="ratio-loading">풋/콜 비율 데이터 로딩 중...</div>
+        <div class="ratio-container" id="ratio-result" style="display:none;">
+            <h3>GLD ETF 풋/콜 옵션 비율</h3>
+            <div class="bar-chart">
+                <div class="bar-call" id="call-bar"></div>
+                <div class="bar-put" id="put-bar"></div>
+            </div>
+            <div class="ratio-labels">
+                <span id="call-label">콜(상승)</span>
+                <span id="put-label">풋(하락)</span>
+            </div>
+            <p style="text-align: center; margin-top: 10px; font-size: 14px;">
+                <strong>거래량 비율:</strong> <span id="volume-ratio"></span> | 
+                <strong>미결제약정 비율:</strong> <span id="oi-ratio"></span>
+            </p>
+        </div>
+
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             fetchGoldPremium();
+            fetchPutCallRatio();
         });
+
+        async function fetchPutCallRatio() {
+            try {
+                const response = await fetch('https://gold-pre.onrender.com/api/put_call_ratio');
+                const data = await response.json();
+
+                if (data.error) {
+                    document.getElementById('ratio-loading').innerText = '풋/콜 데이터 로드 실패: ' + data.error;
+                    return;
+                }
+
+                const putVolume = parseFloat(data.put_volume.replace(/,/g, ''));
+                const callVolume = parseFloat(data.call_volume.replace(/,/g, ''));
+                const totalVolume = putVolume + callVolume;
+
+                const putPercentage = (putVolume / totalVolume) * 100;
+                const callPercentage = (callVolume / totalVolume) * 100;
+
+                document.getElementById('call-bar').style.width = callPercentage + '%';
+                document.getElementById('call-bar').innerText = Math.round(callPercentage) + '%';
+                document.getElementById('put-bar').style.width = putPercentage + '%';
+                document.getElementById('put-bar').innerText = Math.round(putPercentage) + '%';
+
+                document.getElementById('call-label').innerText = `콜: ${data.call_volume}`;
+                document.getElementById('put-label').innerText = `풋: ${data.put_volume}`;
+
+                document.getElementById('volume-ratio').innerText = data.volume_ratio;
+                document.getElementById('oi-ratio').innerText = data.open_interest_ratio;
+
+                document.getElementById('ratio-loading').style.display = 'none';
+                document.getElementById('ratio-result').style.display = 'block';
+
+            } catch (error) {
+                document.getElementById('ratio-loading').innerText = '풋/콜 API 통신 오류: ' + error;
+            }
+        }
 
         async function fetchGoldPremium() {
             document.getElementById('loading').style.display = 'block';
@@ -121,12 +218,12 @@
                 }
 
                 // Display raw data
-                document.getElementById('internationalPriceDisplay').innerText = data.international_price_oz.toFixed(2);
-                document.getElementById('koreanPriceDisplay').innerText = data.korean_price_gram.toFixed(2);
-                document.getElementById('exchangeRateDisplay').innerText = data.exchange_rate.toFixed(2);
+                document.getElementById('internationalPriceDisplay').innerText = data.international_price_oz.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('koreanPriceDisplay').innerText = data.korean_price_gram.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('exchangeRateDisplay').innerText = data.exchange_rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                 // Display calculated data
-                document.getElementById('convertedPrice').innerText = data.converted_price_krw_per_gram.toFixed(2);
+                document.getElementById('convertedPrice').innerText = data.converted_price_krw_per_gram.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 
                 const premiumRateEl = document.getElementById('premiumRate');
                 const premiumTextEl = document.getElementById('premiumText');

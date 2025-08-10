@@ -4,6 +4,8 @@ import requests
 import json
 from datetime import datetime, timedelta
 
+from bs4 import BeautifulSoup
+
 app = Flask(__name__)
 CORS(app, resources={r'/api/*': {'origins': 'https://gold-pre.vercel.app'}})
 
@@ -13,39 +15,23 @@ EXCHANGE_RATE_API_KEY = "LEp52OgdDZzH35k7eyu8cHvXWWbmGJeC"
 @app.route('/api/gold_premium', methods=['GET'])
 def get_gold_premium():
     try:
-        # 1. Get International Gold Price
-        international_gold_url = "https://www.samsunggold.co.kr/realtime/ajax/getMarketData.php?onlyInter=1"
-        international_gold_response = requests.get(international_gold_url)
-        print(f"International Gold API Response Status: {international_gold_response.status_code}")
-        print(f"International Gold API Raw Response: {international_gold_response.text}")
-        try:
-            international_gold_data = international_gold_response.json()
-            print(f"Type of international_gold_data: {type(international_gold_data)}")
-        except json.JSONDecodeError:
-            return jsonify({"error": f"International Gold API did not return valid JSON. Raw response: {international_gold_response.text}"}), 500
+        # 1. Get International Gold Price from Naver Finance
+        international_gold_url = "https://m.stock.naver.com/marketindex/metals/GCcv1"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(international_gold_url, headers=headers)
+        response.raise_for_status()  # Raise an exception for bad status codes
         
-        # Assuming the structure is like {"gold_price": "2300.00"} or similar
-        # You might need to inspect the actual JSON response to get the correct key
-        # For now, let's assume it's directly accessible or needs parsing
-        # Example: {"data": [{"item": "GOLD", "price": "2300.00"}]}
-        # Let's try to find a common key or assume a simple structure
+        soup = BeautifulSoup(response.text, 'lxml')
+        price_strong_tag = soup.find('strong', class_='DetailInfo_price__I_VJn')
         
-        # A more robust way would be to parse the HTML if it's not a clean JSON API
-        # For now, let's assume it returns a JSON with a key like 'price' or 'gold_price'
-        # If the API returns HTML, we'll need to use a library like BeautifulSoup
-        
-        # Let's assume the international gold price is in 'data' array, first element, 'price' key
-        international_price_oz = None
-        if isinstance(international_gold_data, dict) and 'data' in international_gold_data and 'interMarketPriceApiDTO' in international_gold_data['data']:
-            inter_market_data = international_gold_data['data']['interMarketPriceApiDTO']
-            # Prioritize 'gold_ask' if available, otherwise 'gold_bid'
-            if 'gold_ask' in inter_market_data and inter_market_data['gold_ask'] != '0.00':
-                international_price_oz = float(inter_market_data['gold_ask'].replace(',', ''))
-            elif 'gold_bid' in inter_market_data and inter_market_data['gold_bid'] != '0.00':
-                international_price_oz = float(inter_market_data['gold_bid'].replace(',', ''))
-        
+        if not price_strong_tag:
+            return jsonify({"error": "Could not find the price tag on the Naver Finance page."}), 500
+            
+        price_text = price_strong_tag.get_text(strip=True).split('USD')[0]
+        international_price_oz = float(price_text.replace(',', ''))
+
         if international_price_oz is None:
-            return jsonify({"error": "Could not parse international gold price from API response."}), 500
+            return jsonify({"error": "Could not parse international gold price from Naver Finance."}), 500
 
 
         # 2. Get Domestic Gold Price (Naver Stock API)
@@ -149,3 +135,44 @@ def get_gold_premium():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
+@app.route('/api/put_call_ratio', methods=['GET'])
+def get_put_call_ratio():
+    try:
+        url = "https://www.barchart.com/stocks/quotes/GLD/options"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'lxml')
+        
+        # Find all relevant data rows
+        data_rows = soup.select('div.bc-quote-row')
+        
+        ratio_data = {}
+        
+        for row in data_rows:
+            label_div = row.find('div', class_='column-1')
+            value_div = row.find('div', class_='column-2')
+            if label_div and value_div:
+                label = label_div.get_text(strip=True)
+                value = value_div.get_text(strip=True)
+                
+                if "Put/Call Vol Ratio" in label:
+                    ratio_data['volume_ratio'] = value
+                elif "Put/Call Open Int Ratio" in label:
+                    ratio_data['open_interest_ratio'] = value
+                elif "Put Volume" in label:
+                    ratio_data['put_volume'] = value
+                elif "Call Volume" in label:
+                    ratio_data['call_volume'] = value
+
+        if not ratio_data:
+            return jsonify({"error": "Could not find put/call ratio data. The website structure may have changed."}), 500
+
+        return jsonify(ratio_data)
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"API request failed: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
