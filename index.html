@@ -111,7 +111,7 @@
             document.getElementById('result').style.display = 'none';
 
             try {
-                const response = await fetch('http://127.0.0.1:5000/api/gold_premium');
+                const response = await fetch('/api/gold_premium');
                 const data = await response.json();
 
                 if (data.error) {
