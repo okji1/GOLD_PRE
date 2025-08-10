@@ -173,7 +173,9 @@
                 const data = await response.json();
 
                 if (data.error) {
-                    document.getElementById('ratio-loading').innerText = '풋/콜 데이터 로드 실패: ' + data.error;
+                    let error_details = data.details || data.error;
+                    alert('풋/콜 데이터 로드 실패: ' + error_details);
+                    document.getElementById('ratio-loading').innerText = '풋/콜 데이터 로드 실패: ' + error_details;
                     return;
                 }
 

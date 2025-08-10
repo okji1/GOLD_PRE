@@ -140,13 +140,12 @@ if __name__ == '__main__':
 def get_put_call_ratio():
     try:
         url = "https://www.barchart.com/stocks/quotes/GLD/options"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'lxml')
         
-        # Find all relevant data rows
         data_rows = soup.select('div.bc-quote-row')
         
         ratio_data = {}
@@ -168,11 +167,13 @@ def get_put_call_ratio():
                     ratio_data['call_volume'] = value
 
         if not ratio_data:
-            return jsonify({"error": "Could not find put/call ratio data. The website structure may have changed."}), 500
+            return jsonify({"error": "Data parsing failed.", "details": "Could not find put/call ratio data on the page. The website structure may have changed."}), 500
 
         return jsonify(ratio_data)
 
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Request Timed Out", "details": "The request to barchart.com took too long to respond."}), 500
     except requests.exceptions.RequestException as e:
-        return jsonify({"error": f"API request failed: {str(e)}"}), 500
+        return jsonify({"error": "Request Failed", "details": f"Failed to fetch data from barchart.com: {str(e)}"}), 500
     except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        return jsonify({"error": "An Unexpected Server Error Occurred", "details": str(e)}), 500
