@@ -1,3 +1,6 @@
+import os
+from dotenv import load_dotenv
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import requests
@@ -6,11 +9,17 @@ from datetime import datetime, timedelta
 
 from bs4 import BeautifulSoup
 
+# Load environment variables from .env file
+load_dotenv()
+
 app = Flask(__name__)
 CORS(app, resources={r'/api/*': {'origins': 'https://gold-pre.vercel.app'}})
 
-# Replace with your actual API key for the exchange rate API
-EXCHANGE_RATE_API_KEY = "LEp52OgdDZzH35k7eyu8cHvXWWbmGJeC" 
+# Get API key from environment variable
+EXCHANGE_RATE_API_KEY = os.getenv("EXCHANGE_RATE_API_KEY")
+
+if not EXCHANGE_RATE_API_KEY:
+    raise ValueError("EXCHANGE_RATE_API_KEY not found in environment variables")
 
 @app.route('/api/gold_premium', methods=['GET'])
 def get_gold_premium():
